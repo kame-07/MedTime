@@ -60,11 +60,13 @@ def create_app() -> Flask:
     )
     message_handler = MessageHandler(storage, reminder)
 
-    scheduler.start()
-    reminder.restore_jobs()
-    atexit.register(lambda: scheduler.shutdown(wait=False))
-
     app = Flask(__name__)
+    # gunicornのworkerプロセスがfork()された「後」にスケジューラを起動できるよう、
+    # create_app()の中では起動せず、start_scheduler()から使えるように公開だけしておく。
+    # importの時点(fork前)で起動すると、裏方のスレッドがforkで子プロセスに
+    # 引き継がれず、確認メッセージが永久に発火しなくなる問題があったため。
+    app.scheduler = scheduler
+    app.reminder = reminder
     webhook_handler = WebhookHandler(config.CHANNEL_SECRET)
 
     @app.route("/health", methods=["GET"])
@@ -143,6 +145,20 @@ def create_app() -> Flask:
 app = create_app()
 
 
+def start_scheduler() -> None:
+    """スケジューラを実際に起動する。
+
+    ローカル実行(`python app.py`)ではこのファイルの起動直前に呼ぶ。
+    本番(gunicorn)では gunicorn.conf.py の post_fork フックから、
+    workerプロセスがfork()された直後に呼ぶ。import時に呼ばないのは、
+    fork前に起動した裏方スレッドがforkで子プロセスに引き継がれないため。
+    """
+    app.scheduler.start()
+    app.reminder.restore_jobs()
+    atexit.register(lambda: app.scheduler.shutdown(wait=False))
+
+
 if __name__ == "__main__":
+    start_scheduler()
     # リローダーを有効にするとスケジューラが二重起動するため無効にしている
     app.run(host="0.0.0.0", port=config.PORT, use_reloader=False)
