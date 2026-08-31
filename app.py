@@ -6,6 +6,8 @@ Webhook を受け取る Flask サーバーと、確認メッセージをプッ�
 
 import atexit
 import logging
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, abort, request
@@ -54,6 +56,30 @@ def create_app() -> Flask:
     @app.route("/health", methods=["GET"])
     def health():
         return {"status": "ok"}, 200
+
+    @app.route("/debug/jobs", methods=["GET"])
+    def debug_jobs():
+        # 原因調査用の一時的な診断ページ。個人情報(ユーザーID等)は含めない。
+        jobs = []
+        for job in scheduler.get_jobs():
+            kind = job.id.split(":", 1)[0]
+            jobs.append(
+                {
+                    "kind": kind,
+                    "time": job.id.rsplit(":", 1)[-1] if kind == "remind" else None,
+                    "next_run_time": (
+                        job.next_run_time.isoformat() if job.next_run_time else None
+                    ),
+                }
+            )
+        return {
+            "server_time_utc": datetime.now(timezone.utc).isoformat(),
+            "server_time_configured_tz": datetime.now(ZoneInfo(config.TIMEZONE)).isoformat(),
+            "configured_timezone": config.TIMEZONE,
+            "scheduler_running": scheduler.running,
+            "job_count": len(jobs),
+            "jobs": jobs,
+        }, 200
 
     @app.route("/callback", methods=["POST"])
     def callback():
