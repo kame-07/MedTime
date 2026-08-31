@@ -1,0 +1,13 @@
+# シークレット類(絶対にコミットしない)
+.env
+
+# 実行時データ
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/

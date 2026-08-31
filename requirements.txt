@@ -1,0 +1,17 @@
+# LINE 公式 SDK。純 Python 実装の v2 API(linebot.*)を使用している。
+# v3 API(linebot.v3.*)は pydantic のネイティブ拡張に依存しており、
+# Windows Smart App Control / WDAC などで未署名 DLL がブロックされる環境では
+# import に失敗するため。詳細は services/line_client.py の冒頭コメントを参照。
+line-bot-sdk>=3.11.0,<4.0.0
+
+Flask>=3.0.0
+APScheduler>=3.10.4
+python-dotenv>=1.0.1
+tzdata>=2024.1
+
+# 本番用WSGIサーバー(Render等のLinux環境で使用。ローカルのFlask開発サーバーには不要だが、
+# インストール自体はWindowsでも通るため、依存関係を分けずにここに含めている)
+gunicorn>=22.0.0
+
+# 開発・テスト用
+pytest>=8.0.0
