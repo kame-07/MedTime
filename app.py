@@ -72,11 +72,14 @@ def create_app() -> Flask:
                     ),
                 }
             )
+        thread = getattr(scheduler, "_thread", None)
         return {
             "server_time_utc": datetime.now(timezone.utc).isoformat(),
             "server_time_configured_tz": datetime.now(ZoneInfo(config.TIMEZONE)).isoformat(),
             "configured_timezone": config.TIMEZONE,
             "scheduler_running": scheduler.running,
+            "scheduler_thread_alive": thread.is_alive() if thread else None,
+            "scheduler_thread_name": thread.name if thread else None,
             "job_count": len(jobs),
             "jobs": jobs,
         }, 200
