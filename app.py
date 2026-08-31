@@ -6,6 +6,7 @@ Webhook を受け取る Flask サーバーと、確認メッセージをプッ�
 
 import atexit
 import logging
+import threading
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -26,6 +27,19 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+def _log_thread_exception(args: threading.ExceptHookArgs) -> None:
+    # APSchedulerのバックグラウンドスレッドなどが原因不明で落ちる問題を調査するための一時的な仕掛け。
+    # デフォルトでは未捕捉の例外はスレッドを黙って終了させるだけで、ログに残らない。
+    thread_name = args.thread.name if args.thread else "?"
+    logger.error(
+        "Unhandled exception in thread %s", thread_name,
+        exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+    )
+
+
+threading.excepthook = _log_thread_exception
 
 
 def create_app() -> Flask:
