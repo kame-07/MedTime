@@ -88,6 +88,24 @@ def test_delete_multiple():
     assert command.times == ["08:00", "12:00", "22:00"]
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "時間削除全部",
+        "時間削除 全部",
+        "時間削除すべて",
+        "時間削除全て",
+        "時間削除ぜんぶ",
+        "時間削除全件",
+        "時間削除全部削除",
+    ],
+)
+def test_delete_all(text):
+    command = cp.parse(text)
+    assert command.kind == cp.DELETE_ALL
+    assert command.times == []
+
+
 @pytest.mark.parametrize("text", ["はい", "ハイ", "はい。", " はい ", "Yes"])
 def test_yes(text):
     assert cp.parse(text).kind == cp.YES

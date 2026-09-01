@@ -93,6 +93,16 @@ class Storage:
             self._save()
             return True
 
+    def clear_times(self, user_id: str) -> List[str]:
+        """登録済みの時刻をすべて削除し、削除した時刻を返す。"""
+        with self._lock:
+            user = self._user(user_id)
+            removed = list(user["times"])
+            if removed:
+                user["times"] = []
+                self._save()
+            return removed
+
     def change_time(self, user_id: str, old: str, new: str) -> str:
         """変更結果を "ok" / "not_found" / "duplicate" で返す。"""
         with self._lock:

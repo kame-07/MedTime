@@ -46,6 +46,9 @@ class MessageHandler:
         if command.kind == command_parser.DELETE:
             return Reply(self._delete(user_id, command))
 
+        if command.kind == command_parser.DELETE_ALL:
+            return Reply(self._delete_all(user_id))
+
         if command.kind == command_parser.LIST:
             return Reply(messages.time_list(self._storage.get_times(user_id)))
 
@@ -116,3 +119,14 @@ class MessageHandler:
             self._reminder.sync_user_jobs(user_id)
             logger.info("times deleted: user=%s times=%s", user_id, deleted)
         return messages.deleted(deleted, missing, self._storage.get_times(user_id))
+
+    def _delete_all(self, user_id: str) -> str:
+        removed = self._storage.clear_times(user_id)
+        if not removed:
+            return messages.deleted_all([], pending_cancelled=False)
+
+        # 予定を全部消したのに追いかけ確認だけが残らないよう、確認待ちも解除する
+        pending_cancelled = self._reminder.cancel_pending(user_id)
+        self._reminder.sync_user_jobs(user_id)
+        logger.info("all times deleted: user=%s times=%s", user_id, removed)
+        return messages.deleted_all(removed, pending_cancelled)

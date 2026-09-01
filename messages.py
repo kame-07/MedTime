@@ -26,6 +26,7 @@ HELP = (
     "・追加: 時間追加22時00\n"
     "・変更: 時間変更22時00を19時00\n"
     "・削除: 時間削除22時00\n"
+    "・全部削除: 時間削除全部\n"
     "・一覧: 時間一覧\n"
     "\n"
     "▼ まとめて指定するとき\n"
@@ -85,6 +86,25 @@ def deleted(deleted_times: List[str], missing_times: List[str], times: List[str]
         + _section("登録されていません", [format_time_jp(t) for t in missing_times])
         + time_list(times)
     )
+
+
+DELETE_ALL_NOTHING = (
+    "登録されている時刻がないため、削除するものはありませんでした。\n"
+    "「時間追加22時00」のように送ると追加できます。"
+)
+
+
+def deleted_all(deleted_times: List[str], pending_cancelled: bool) -> str:
+    """「時間削除全部」の結果。予定時刻は残らないので一覧は出さない。"""
+    if not deleted_times:
+        return DELETE_ALL_NOTHING
+
+    text = _section(
+        "すべて削除しました", [format_time_jp(t) for t in deleted_times]
+    )
+    if pending_cancelled:
+        text += "確認待ちだったお知らせも終了しました。\n\n"
+    return text + "現在、登録されている時刻はありません。\n「時間追加22時00」のように送ると追加できます。"
 
 
 def changed(

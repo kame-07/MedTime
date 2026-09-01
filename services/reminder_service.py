@@ -91,6 +91,17 @@ class ReminderService:
                 coalesce=True,
             )
 
+    def cancel_pending(self, user_id: str) -> bool:
+        """確認待ちを取り消す。取り消すものがあれば True。
+
+        予定時刻をすべて削除したときに使う。これを呼ばないと、
+        削除後も追いかけ確認だけが5分おきに届き続けてしまう。
+        """
+        pending = self._storage.get_pending(user_id)
+        self._cancel_followup(user_id)
+        self._storage.clear_pending(user_id)
+        return pending is not None
+
     # ------------------------------------------------------------------
     # 確認メッセージの送信
     # ------------------------------------------------------------------

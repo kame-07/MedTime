@@ -7,6 +7,7 @@
     時間変更8時00を7時00 22時00を21時00 まとめて変更
     時間削除22時00                     予定時刻の削除
     時間削除8時00 12時00               まとめて削除
+    時間削除全部                       登録済みの予定時刻をすべて削除
     時間一覧                           登録済みの予定時刻を表示
     はい / いいえ                      服薬確認への返信
 
@@ -23,6 +24,7 @@ from typing import List, Optional, Tuple
 ADD = "add"
 CHANGE = "change"
 DELETE = "delete"
+DELETE_ALL = "delete_all"
 LIST = "list"
 YES = "yes"
 NO = "no"
@@ -56,6 +58,9 @@ _TIME_PARTS_RE = re.compile(r"^(\d{1,2})\s*(?:時|:)\s*(\d{0,2})\s*分?$")
 ADD_KEYWORD = "時間追加"
 CHANGE_KEYWORD = "時間変更"
 DELETE_KEYWORD = "時間削除"
+
+# 「時間削除」に続けてこれらが送られたら、登録済みの時刻をすべて削除する
+_ALL_WORDS = {"全部", "ぜんぶ", "全て", "すべて", "全件", "全部削除", "すべて削除", "all"}
 
 _YES_WORDS = {"はい", "ハイ", "yes", "y", "飲んだ", "のんだ", "のみました", "飲みました"}
 _NO_WORDS = {"いいえ", "イイエ", "no", "n", "まだ", "飲んでない", "のんでない"}
@@ -160,7 +165,10 @@ def parse(text: str) -> Command:
         return Command(kind=INVALID_TIME, keyword=ADD_KEYWORD)
 
     if normalized.startswith(DELETE_KEYWORD):
-        times = _parse_times(normalized[len(DELETE_KEYWORD) :])
+        rest = normalized[len(DELETE_KEYWORD) :].strip()
+        if rest.lower() in _ALL_WORDS:
+            return Command(kind=DELETE_ALL)
+        times = _parse_times(rest)
         if times:
             return Command(kind=DELETE, times=times)
         return Command(kind=INVALID_TIME, keyword=DELETE_KEYWORD)

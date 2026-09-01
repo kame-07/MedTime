@@ -139,6 +139,33 @@ def test_change_multiple_reports_each_problem(env):
     assert "変更先がすでに登録されています" in reply.text
 
 
+def test_delete_all_removes_every_time_and_job(env):
+    env.handler.handle_text(USER, "時間追加8時00 12時00 22時00")
+    reply = env.handler.handle_text(USER, "時間削除全部")
+
+    assert env.storage.get_times(USER) == []
+    for hhmm in ("08:00", "12:00", "22:00"):
+        assert env.scheduler.get_job(f"remind:{USER}:{hhmm}") is None
+    assert "すべて削除しました" in reply.text
+    assert "8時00分" in reply.text and "22時00分" in reply.text
+
+
+def test_delete_all_cancels_pending_confirmation(env):
+    register_and_fire(env)  # 22時00分を登録し、確認待ちにする
+    reply = env.handler.handle_text(USER, "時間削除全部")
+
+    assert env.storage.get_pending(USER) is None
+    assert env.scheduler.get_job(FOLLOWUP_JOB) is None
+    assert "確認待ち" in reply.text
+    # 全部消したあとは、追いかけ確認も届かない
+    assert len(env.line.pushed) == 1
+
+
+def test_delete_all_without_any_time(env):
+    reply = env.handler.handle_text(USER, "時間削除全部")
+    assert reply.text == messages.DELETE_ALL_NOTHING
+
+
 def test_partially_invalid_input_changes_nothing(env):
     env.handler.handle_text(USER, "時間追加8時00")
     reply = env.handler.handle_text(USER, "時間追加12時00 25時00")
