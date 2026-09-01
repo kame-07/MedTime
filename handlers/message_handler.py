@@ -73,28 +73,46 @@ class MessageHandler:
     # 予定時刻の追加・変更・削除
     # ------------------------------------------------------------------
     def _add(self, user_id: str, command: Command) -> str:
-        hhmm = command.time
-        if not self._storage.add_time(user_id, hhmm):
-            return messages.already_exists(hhmm, self._storage.get_times(user_id))
-        self._reminder.sync_user_jobs(user_id)
-        logger.info("time added: user=%s time=%s", user_id, hhmm)
-        return messages.added(hhmm, self._storage.get_times(user_id))
+        added, skipped = [], []
+        for hhmm in command.times:
+            if self._storage.add_time(user_id, hhmm):
+                added.append(hhmm)
+            else:
+                skipped.append(hhmm)
+
+        # 予定が1件でも変わったときだけ、cronジョブを組み直す
+        if added:
+            self._reminder.sync_user_jobs(user_id)
+            logger.info("times added: user=%s times=%s", user_id, added)
+        return messages.added(added, skipped, self._storage.get_times(user_id))
 
     def _change(self, user_id: str, command: Command) -> str:
-        old, new = command.time, command.new_time
-        result = self._storage.change_time(user_id, old, new)
-        if result == "not_found":
-            return messages.not_found(old, self._storage.get_times(user_id))
-        if result == "duplicate":
-            return messages.duplicate(new, self._storage.get_times(user_id))
-        self._reminder.sync_user_jobs(user_id)
-        logger.info("time changed: user=%s %s -> %s", user_id, old, new)
-        return messages.changed(old, new, self._storage.get_times(user_id))
+        changed, missing, duplicated = [], [], []
+        for old, new in command.changes:
+            result = self._storage.change_time(user_id, old, new)
+            if result == "ok":
+                changed.append((old, new))
+            elif result == "not_found":
+                missing.append(old)
+            else:
+                duplicated.append(new)
+
+        if changed:
+            self._reminder.sync_user_jobs(user_id)
+            logger.info("times changed: user=%s changes=%s", user_id, changed)
+        return messages.changed(
+            changed, missing, duplicated, self._storage.get_times(user_id)
+        )
 
     def _delete(self, user_id: str, command: Command) -> str:
-        hhmm = command.time
-        if not self._storage.remove_time(user_id, hhmm):
-            return messages.not_found(hhmm, self._storage.get_times(user_id))
-        self._reminder.sync_user_jobs(user_id)
-        logger.info("time deleted: user=%s time=%s", user_id, hhmm)
-        return messages.deleted(hhmm, self._storage.get_times(user_id))
+        deleted, missing = [], []
+        for hhmm in command.times:
+            if self._storage.remove_time(user_id, hhmm):
+                deleted.append(hhmm)
+            else:
+                missing.append(hhmm)
+
+        if deleted:
+            self._reminder.sync_user_jobs(user_id)
+            logger.info("times deleted: user=%s times=%s", user_id, deleted)
+        return messages.deleted(deleted, missing, self._storage.get_times(user_id))

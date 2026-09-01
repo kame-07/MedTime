@@ -20,7 +20,32 @@ from handlers import command_parser as cp
 def test_add(text, expected):
     command = cp.parse(text)
     assert command.kind == cp.ADD
-    assert command.time == expected
+    assert command.times == [expected]
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("時間追加8時00 12時00 22時00", ["08:00", "12:00", "22:00"]),
+        ("時間追加8時00、12時00", ["08:00", "12:00"]),
+        ("時間追加8時00,12時00", ["08:00", "12:00"]),
+        ("時間追加8時00と12時00", ["08:00", "12:00"]),
+        ("時間追加8:00 12:00", ["08:00", "12:00"]),
+        ("時間追加８時００　１２時００", ["08:00", "12:00"]),
+        # 同じ時刻を重ねて書かれても1件にまとめる
+        ("時間追加8時00 8時00", ["08:00"]),
+    ],
+)
+def test_add_multiple(text, expected):
+    command = cp.parse(text)
+    assert command.kind == cp.ADD
+    assert command.times == expected
+
+
+def test_add_multiline():
+    command = cp.parse("時間追加\n8時00\n12時00")
+    assert command.kind == cp.ADD
+    assert command.times == ["08:00", "12:00"]
 
 
 @pytest.mark.parametrize(
@@ -34,14 +59,33 @@ def test_add(text, expected):
 def test_change(text, old, new):
     command = cp.parse(text)
     assert command.kind == cp.CHANGE
-    assert command.time == old
-    assert command.new_time == new
+    assert command.changes == [(old, new)]
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("時間変更8時00を7時00 22時00を21時00", [("08:00", "07:00"), ("22:00", "21:00")]),
+        ("時間変更8時00を7時00、22時00を21時00", [("08:00", "07:00"), ("22:00", "21:00")]),
+        ("時間変更8時00を7時00と22時00を21時00", [("08:00", "07:00"), ("22:00", "21:00")]),
+    ],
+)
+def test_change_multiple(text, expected):
+    command = cp.parse(text)
+    assert command.kind == cp.CHANGE
+    assert command.changes == expected
 
 
 def test_delete():
     command = cp.parse("時間削除22時00")
     assert command.kind == cp.DELETE
-    assert command.time == "22:00"
+    assert command.times == ["22:00"]
+
+
+def test_delete_multiple():
+    command = cp.parse("時間削除8時00 12時00 22時00")
+    assert command.kind == cp.DELETE
+    assert command.times == ["08:00", "12:00", "22:00"]
 
 
 @pytest.mark.parametrize("text", ["はい", "ハイ", "はい。", " はい ", "Yes"])
@@ -67,6 +111,11 @@ def test_list_and_help():
         ("時間追加あさ", "時間追加"),
         ("時間変更22時00", "時間変更"),  # 変更先がない
         ("時間削除", "時間削除"),
+        # 複数指定のうち1つでも読み取れなければ、全体をやり直してもらう
+        ("時間追加8時00 あさ", "時間追加"),
+        ("時間追加8時00 25時00", "時間追加"),
+        ("時間削除8時00 12時99", "時間削除"),
+        ("時間変更8時00を7時00 22時00", "時間変更"),
     ],
 )
 def test_invalid_time(text, keyword):
